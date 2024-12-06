@@ -24,6 +24,11 @@
 // aligns to the previous sample
 #define	ALIGN_DOWN_TO_SAMPLE(__ToAlign)	{ __ToAlign -= (__ToAlign  % SAMPLE_FACTOR); }
 
+using namespace std;
+using namespace literals;
+
+static UINT GetDeviceID(const string& deviceID);
+
 ////////////////////////////////////////////////////////////////
 // CWaveQueueItem
 
@@ -55,7 +60,7 @@ public:
 	void Mute();
 
 public:
-	std::vector<unsigned char>	m_Blob;
+	vector<unsigned char>		m_Blob;
 	ULONG						m_nLen;
 
 private:
@@ -71,7 +76,7 @@ class WavePlayThread
 	friend class AudioPlayer;
 
 public:
-	typedef std::function<bool(unsigned char* pStream, ULONG dwLen)>	callback_t;
+	typedef function<bool(unsigned char* pStream, ULONG dwLen)>	callback_t;
 
 	WavePlayThread(UINT nDeviceID = WAVE_MAPPER);
 	~WavePlayThread();
@@ -98,14 +103,14 @@ protected:
 	bool OnEvent();
 
 private:
-	bool Alloc(std::shared_ptr<CWaveQueueItem>& pItem);
-	void Free(std::shared_ptr<CWaveQueueItem>& pItem);
+	bool Alloc(shared_ptr<CWaveQueueItem>& pItem);
+	void Free(shared_ptr<CWaveQueueItem>& pItem);
 
 protected:
 	HANDLE					m_hEvent;
 	HWAVEOUT				m_hWaveOut;
 
-	typedef std::list<std::shared_ptr<CWaveQueueItem>>	CWaveQueueItemList;
+	typedef list<shared_ptr<CWaveQueueItem>>	CWaveQueueItemList;
 
 	CWaveQueueItemList		m_queue;
 	CWaveQueueItemList		m_pool;
@@ -155,7 +160,9 @@ void CWaveQueueItem::UnPrepare(HWAVEOUT hWaveOut)
 	if (m_WaveHeader.dwFlags & WHDR_PREPARED)
 	{
 		while (waveOutUnprepareHeader(hWaveOut, &m_WaveHeader, sizeof(m_WaveHeader)) != MMSYSERR_NOERROR)
+		{
 			Sleep(10);
+		}
 		InitNew();
 	}
 }
@@ -228,19 +235,19 @@ void WavePlayThread::Init(ULONG nFreq /*= 44100*/, ULONG nChannels /*= 2*/, ULON
 	m_pool.clear();
 }
 
-bool WavePlayThread::Alloc(std::shared_ptr<CWaveQueueItem>& pItem)
+bool WavePlayThread::Alloc(shared_ptr<CWaveQueueItem>& pItem)
 {
 	if (pItem)
 		pItem.reset();
 
 	if (!m_pool.empty())
 	{
-		pItem = std::move(m_pool.front());
+		pItem = move(m_pool.front());
 		m_pool.pop_front();
 	}
 	else
 	{
-		pItem = std::make_shared<CWaveQueueItem>();
+		pItem = make_shared<CWaveQueueItem>();
 
 		pItem->m_nLen = 4096;
 
@@ -257,11 +264,11 @@ bool WavePlayThread::Alloc(std::shared_ptr<CWaveQueueItem>& pItem)
 	return true;
 }
 
-void WavePlayThread::Free(std::shared_ptr<CWaveQueueItem>& pItem)
+void WavePlayThread::Free(shared_ptr<CWaveQueueItem>& pItem)
 {
 	assert(pItem);
 	pItem->InitNew();
-	m_pool.emplace_back(std::move(pItem));
+	m_pool.emplace_back(move(pItem));
 }
 
 bool WavePlayThread::Start(callback_t callback, size_t nThreshold /*= 16*/)
@@ -327,7 +334,7 @@ void WavePlayThread::Stop()
 
 		while (!m_queue.empty())
 		{
-			std::shared_ptr<CWaveQueueItem> pItem = std::move(m_queue.front());
+			shared_ptr<CWaveQueueItem> pItem = move(m_queue.front());
 			m_queue.pop_front();
 
 			// wait for abortion to complete
@@ -351,7 +358,7 @@ void WavePlayThread::WaitDone()
 {
 	while (!m_queue.empty())
 	{
-		std::shared_ptr<CWaveQueueItem> pItem = std::move(m_queue.front());
+		shared_ptr<CWaveQueueItem> pItem = move(m_queue.front());
 		m_queue.pop_front();
 
 		// wait for abortion to complete
@@ -367,7 +374,7 @@ bool WavePlayThread::OnEvent()
 	{
 		if (m_queue.front()->IsDone())
 		{
-			auto pItem = std::move(m_queue.front());
+			auto pItem = move(m_queue.front());
 			m_queue.pop_front();
 			Free(pItem);
 		}
@@ -380,7 +387,7 @@ bool WavePlayThread::OnEvent()
 	{
 		while (m_nThreshold >= m_queue.size())
 		{
-			std::shared_ptr<CWaveQueueItem> pItem;
+			shared_ptr<CWaveQueueItem> pItem;
 
 			if (!Alloc(pItem))
 				break;
@@ -388,7 +395,7 @@ bool WavePlayThread::OnEvent()
 
 			if (pItem->Prepare(m_hWaveOut))
 			{
-				m_queue.emplace_back(std::move(pItem));
+				m_queue.emplace_back(move(pItem));
 			}
 			else
 			{
@@ -475,7 +482,8 @@ WORD WavePlayThread::GetVolume()
 //////////////////////////////////////////////////////////
 // AudioPlayer
 
-AudioPlayer::AudioPlayer()
+AudioPlayer::AudioPlayer(const string device /*= "default"*/)
+	: m_device{ device }
 {
 	m_pAudioData = NULL;
 }
@@ -515,7 +523,9 @@ bool AudioPlayer::Init(IStream* pStream, bool isRawStream /*= false*/)
 
 	m_pAudioData->AddRef();
 	
-	m_threadWavePlay = std::make_shared<WavePlayThread>();
+	const UINT deviceID = m_device != "default"s ? GetDeviceID(m_device) : WAVE_MAPPER;
+
+	m_threadWavePlay = make_shared<WavePlayThread>(deviceID);
 
 	if (!isRawStream)
 	{
@@ -625,11 +635,9 @@ bool AudioPlayer::OnPlayAudio(unsigned char* pData, ULONG dwLen)
 
 namespace AlsaAudio
 {
-	std::future<int> Play(IStream* stream, std::string device /*= "default"*/)
+	future<int> Play(IStream* stream, string device /*= "default"*/)
 	{
-		UNREFERENCED_PARAMETER(device);
-
-		std::future<int> result;
+		future<int> result;
 
 		if (stream)
 		{
@@ -637,15 +645,13 @@ namespace AlsaAudio
 
 			try
 			{
-				result = std::async(std::launch::async, [](IStream* stream, std::string device) -> int
+				result = async(launch::async, [](IStream* stream, const string device) -> int
 					{
-						UNREFERENCED_PARAMETER(device);
-
 						SharedPtr<IStream> _stream;
 
 						_stream.Attach(stream);
 
-						AudioPlayer player;
+						AudioPlayer player(device);
 
 						if (player.Init(_stream))
 						{
@@ -665,13 +671,13 @@ namespace AlsaAudio
 		return result;
 	}
 
-	std::future<int> Play(const void* buf, size_t bufsize, std::string device /*= "default"*/)
+	future<int> Play(const void* buf, size_t bufsize, string device /*= "default"*/)
 	{
 		SharedPtr<BlobStream> stream = new BlobStream(bufsize, buf);
 		return Play(stream, device);
 	}
 
-	std::future<int> Play(std::string file_path, std::string device /*= "default"*/)
+	future<int> Play(string file_path, string device /*= "default"*/)
 	{
 		SharedPtr<BlobStream> stream = new BlobStream();
 		stream->FromFile(file_path);
@@ -679,7 +685,7 @@ namespace AlsaAudio
 	}
 }
 
-static void GetFullAudioDeviceByShortName(std::wstring& strDevname, std::string* pVarAudioID = nullptr)
+static void GetFullAudioDeviceByShortName(wstring& strDevname, string* pVarAudioID = nullptr)
 {
 	if (strDevname.empty())
 	{
@@ -687,11 +693,21 @@ static void GetFullAudioDeviceByShortName(std::wstring& strDevname, std::string*
 	}
 	size_t nLength = strDevname.length();
 
-	std::wstring strBestMatch;
+	wstring strBestMatch;
 
 	IMMDeviceEnumerator* pEnumerator = NULL;
+	HRESULT hrCoInit = E_FAIL;
 
-	if (SUCCEEDED(CoCreateInstance(__uuidof(MMDeviceEnumerator), NULL, CLSCTX_ALL, __uuidof(IMMDeviceEnumerator), (void**)&pEnumerator)))
+	if (FAILED(CoCreateInstance(__uuidof(MMDeviceEnumerator), NULL, CLSCTX_ALL, __uuidof(IMMDeviceEnumerator), (void**)&pEnumerator)))
+	{
+		hrCoInit = CoInitialize(NULL);
+
+		if (!SUCCEEDED(CoCreateInstance(__uuidof(MMDeviceEnumerator), NULL, CLSCTX_ALL, __uuidof(IMMDeviceEnumerator), (void**)&pEnumerator)))
+		{
+			pEnumerator = NULL;
+		}
+	}
+	if (pEnumerator)
 	{
 		IMMDeviceCollection* pCollection = NULL;
 
@@ -748,6 +764,10 @@ static void GetFullAudioDeviceByShortName(std::wstring& strDevname, std::string*
 		}
 		pEnumerator->Release();
 	}
+	if (SUCCEEDED(hrCoInit))
+	{
+		CoUninitialize();
+	}
 	if (!strBestMatch.empty())
 	{
 		strDevname = strBestMatch;
@@ -758,13 +778,13 @@ static void GetFullAudioDeviceByShortName(std::wstring& strDevname, std::string*
 	}
 }
 
-std::map<std::string, std::string> AlsaAudio::ListDevices()
+map<string, string> AlsaAudio::ListDevices()
 {
-	std::map<std::string, std::string> result;
+	map<string, string> result;
 
 	WAVEOUTCAPSW caps;
 
-	UINT n = waveOutGetNumDevs();
+	const UINT n = waveOutGetNumDevs();
 
 	// i is the "WaveMapperID"
 	for (UINT i = 0; i < n; ++i)
@@ -773,17 +793,43 @@ std::map<std::string, std::string> AlsaAudio::ListDevices()
 		{
 			break;
 		}
-		std::wstring strDevname(caps.szPname);
-		std::string deviceID;
+		wstring strDevname(caps.szPname);
+		string deviceID;
 
 		GetFullAudioDeviceByShortName(strDevname, &deviceID);
 
 		if (!strDevname.empty() && !deviceID.empty())
 		{
-			result[std::move(deviceID)] = CW2AEX(strDevname);
+			result[move(deviceID)] = CW2AEX(strDevname);
 		}
 	}
 	return result;
+}
+
+static UINT GetDeviceID(const string& device)
+{
+	WAVEOUTCAPSW caps;
+
+	const UINT n = waveOutGetNumDevs();
+
+	// i is the "WaveMapperID"
+	for (UINT i = 0; i < n; ++i)
+	{
+		if (waveOutGetDevCapsW(i, &caps, sizeof(caps)) != MMSYSERR_NOERROR)
+		{
+			break;
+		}
+		wstring strDevname(caps.szPname);
+		string deviceID;
+
+		GetFullAudioDeviceByShortName(strDevname, &deviceID);
+
+		if (deviceID == device)
+		{
+			return i;
+		}
+	}
+	return WAVE_MAPPER;
 }
 
 #endif // _WIN32
