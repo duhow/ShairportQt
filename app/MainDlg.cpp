@@ -1588,7 +1588,7 @@ void MainDlg::OnAbout()
     QPixmap pixmap(":/ShairportQt.ico");
     labelPixmap->setPixmap(pixmap.scaled(64, 64));
 
-    QPointer<QLabel> versionLabel = new QLabel(tr("<p><a href=\"https://github.com/Frank-Friemel/ShairportQt\">ShairportQt</a> 1.0.0.1</p>"));
+    QPointer<QLabel> versionLabel = new QLabel(tr("<p><a href=\"https://github.com/Frank-Friemel/ShairportQt\">ShairportQt</a> 1.0.0.2</p>"));
 
     dlg->connect(versionLabel, &QLabel::linkActivated, [](QString link)
         {
