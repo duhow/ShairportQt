@@ -74,7 +74,7 @@ public:
         return std::cv_status::no_timeout;
     }
 
-    std::cv_status WaitAndLock(std::unique_lock<std::mutex>& sync, uint32_t ms = INFINITE)
+    std::cv_status WaitAndLock(std::unique_lock<std::mutex>& sync, uint32_t ms)
     {
         assert(sync.owns_lock());
 
@@ -91,6 +91,14 @@ public:
         return cv;
     }
     
+    void WaitAndLock(std::unique_lock<std::mutex>& sync) noexcept
+    {
+        assert(sync.owns_lock());
+
+        m_cv.wait(sync);
+        assert(sync.owns_lock());
+    }
+
     void NotifyAndUnlock(std::unique_lock<std::mutex>& sync, const mode m = mode::one) noexcept
     {
         assert(sync.owns_lock());
