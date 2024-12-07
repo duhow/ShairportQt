@@ -1585,6 +1585,18 @@ void MainDlg::OnKeyPressed(KeyboardHook::Key key) noexcept
             SendDacpCommand("previtem"s);
         }
         break;
+
+        case KeyboardHook::Key::VolumeDown:
+        {
+            SendDacpCommand("volumedown"s);
+        }
+        break;
+
+        case KeyboardHook::Key::VolumeUp:
+        {
+            SendDacpCommand("volumeup"s);
+        }
+        break;
         }
     }
     catch (...)
