@@ -571,8 +571,12 @@ void MainDlg::WidgetCreateMultimediaControlGroup()
     m_buttonPlayPauseTrack->setEnabled(false);
 
     QPointer<QHBoxLayout> mmLayout = new QHBoxLayout;
-    mmLayout->addWidget(m_buttonPreviousTrack);
-    mmLayout->addWidget(m_buttonNextTrack);
+    QPointer<QHBoxLayout> skipLayout = new QHBoxLayout;
+
+    skipLayout->addWidget(m_buttonPreviousTrack);
+    skipLayout->addWidget(m_buttonNextTrack);
+
+    mmLayout->addLayout(skipLayout);
     mmLayout->addWidget(m_buttonPlayPauseTrack);
 
     QPointer<QHBoxLayout> volLayout = new QHBoxLayout;
