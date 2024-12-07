@@ -41,11 +41,12 @@ protected:
 private:
 
     void RunQueue() noexcept;
+    void HandleResendRequest() noexcept;
 
     void QueuePacket(std::unique_ptr<RtpPacket>&& p, bool isResendPacket);
     	
     void RequestResend(const USHORT nSeq, const short nCount) noexcept;
-    bool AsyncRequestResend(const std::unique_lock<std::mutex>& sync, const USHORT nSeq, const short nCount) noexcept;
+    bool AsyncRequestResend(const USHORT nSeq, const short nCount) noexcept;
 
     void AlacDecode(std::unique_ptr<RtpPacket>& packet);
 
@@ -53,17 +54,18 @@ private:
     class ResendRequest
     {
     public:
-        ResendRequest(const uint16_t _seq, const short _count, std::future<void>&& _async)
+        ResendRequest(const uint16_t _seq = 0, const short _count = 0)
             : seq{ _seq }
             , count { _count }
-            , async { std::move(_async) }
         {
         }
 
+        ResendRequest(const ResendRequest&) = delete;
+        ResendRequest& operator=(const ResendRequest&) = delete;
+
     public:
-        const uint16_t              seq;
-        const short                 count;
-        const std::future<void>     async;
+        uint16_t              seq;
+        short                 count;
     };
     using ResendRequestPtr = std::unique_ptr<ResendRequest>;
 
@@ -92,7 +94,11 @@ private:
     std::unique_ptr<RtpEndpoint>            m_timingEndpoint;
 
     std::list<std::unique_ptr<RtpPacket>>   m_packetQueue;
-    std::list<ResendRequestPtr>             m_asyncResend;
+    std::list<ResendRequestPtr>             m_queueResend;
+    std::list<ResendRequestPtr>             m_ringResend;
+    std::mutex                              m_mtxResend;
+    Condition                               m_condResend;
+    std::unique_ptr<std::thread>            m_threadsResend[2];
 
     const size_t                            m_lowLevelQueue;
     const size_t                            m_highLevelQueue;
