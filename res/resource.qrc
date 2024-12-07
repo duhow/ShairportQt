@@ -10,6 +10,8 @@
         <file>pause.png</file>
         <file>skip_to_next.png</file>
         <file>skip_to_prev.png</file>
+        <file>volume_down.png</file>
+        <file>volume_up.png</file>
         <file>ArtShadow.png</file>
         <file>AdShadow.png</file>
     </qresource>

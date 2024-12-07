@@ -74,6 +74,12 @@ namespace Localization::Japanese
 		case StringID::TOOLTIP_NEXT_TRACK:
 			return "Forward"s;
 
+		case StringID::TOOLTIP_VOLUME_UP:
+			return "Volume up"s;
+
+		case StringID::TOOLTIP_VOLUME_DOWN:
+			return "Volume down"s;
+
 		case StringID::TOOLTIP_PLAY_PAUSE:
 			return "Play/Pause"s;
 

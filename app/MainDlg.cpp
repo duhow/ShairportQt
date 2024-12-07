@@ -558,14 +558,28 @@ void MainDlg::WidgetCreateMultimediaControlGroup()
     m_buttonPlayPauseTrack  = new QPushButton(m_iconPlay, tr(""));
     connect(m_buttonPlayPauseTrack, &QPushButton::clicked, [this]() { SendDacpCommand("playpause"s); });
 
+    m_buttonVolumeDown = new QPushButton(QIcon(":/volume_down.png"), tr(""));
+    connect(m_buttonVolumeDown, &QPushButton::clicked, [this]() { SendDacpCommand("volumedown"s); });
+    
+    m_buttonVolumeUp = new QPushButton(QIcon(":/volume_up.png"), tr(""));
+    connect(m_buttonVolumeUp, &QPushButton::clicked, [this]() { SendDacpCommand("volumeup"s); });
+
     m_buttonPreviousTrack->setEnabled(false);
     m_buttonNextTrack->setEnabled(false);
+    m_buttonVolumeDown->setEnabled(false);
+    m_buttonVolumeUp->setEnabled(false);
     m_buttonPlayPauseTrack->setEnabled(false);
 
     QPointer<QHBoxLayout> mmLayout = new QHBoxLayout;
     mmLayout->addWidget(m_buttonPreviousTrack);
     mmLayout->addWidget(m_buttonNextTrack);
     mmLayout->addWidget(m_buttonPlayPauseTrack);
+
+    QPointer<QHBoxLayout> volLayout = new QHBoxLayout;
+
+    volLayout->addWidget(m_buttonVolumeDown);
+    volLayout->addWidget(m_buttonVolumeUp);
+    mmLayout->addLayout(volLayout);
 
     m_groupBoxMultimediaControl = new QGroupBox;
     m_groupBoxMultimediaControl->setSizePolicy(QSizePolicy::Policy::Expanding, QSizePolicy::Policy::Fixed);
@@ -1129,6 +1143,8 @@ void MainDlg::OnUpdateMMState()
 
     m_buttonPreviousTrack->setEnabled(enabled);
     m_buttonNextTrack->setEnabled(enabled);
+    m_buttonVolumeDown->setEnabled(enabled);
+    m_buttonVolumeUp->setEnabled(enabled);
     m_buttonPlayPauseTrack->setEnabled(enabled);
 }
 
@@ -1362,6 +1378,8 @@ void MainDlg::OnUpdateWidgets()
     {
         m_buttonPreviousTrack->setToolTip(GetString(StringID::TOOLTIP_PREV_TRACK));
         m_buttonNextTrack->setToolTip(GetString(StringID::TOOLTIP_NEXT_TRACK));
+        m_buttonVolumeDown->setToolTip(GetString(StringID::TOOLTIP_VOLUME_DOWN));
+        m_buttonVolumeUp->setToolTip(GetString(StringID::TOOLTIP_VOLUME_UP));
         m_buttonPlayPauseTrack->setToolTip(GetString(StringID::TOOLTIP_PLAY_PAUSE));
     }
     else
@@ -1369,6 +1387,8 @@ void MainDlg::OnUpdateWidgets()
         const QString emtpy;
         m_buttonPreviousTrack->setToolTip(emtpy);
         m_buttonNextTrack->setToolTip(emtpy);
+        m_buttonVolumeDown->setToolTip(emtpy);
+        m_buttonVolumeUp->setToolTip(emtpy);
         m_buttonPlayPauseTrack->setToolTip(emtpy);
     }
     m_editNameAirport->setText(VariantValue::Key("APname").Get<string>(m_config).c_str());
