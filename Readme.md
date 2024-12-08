@@ -16,7 +16,10 @@ to be sure nobody is misusing this service.
 ## Installation
 
 ShairportQt consists of a single executable file. So, there's not much to install. Nevertheless I would like to provide
-some hints for the several Operating Systems which worked for me. Once you've downloaded the
+some hints for the several Operating Systems which worked for me. Updating your existing installation please
+do the same. 
+
+Once you've downloaded the
 [zip](https://github.com/Frank-Friemel/ShairportQt/releases) ... just extract the folder which matches your
 OS and follow these instructions:
 
@@ -117,6 +120,25 @@ Special thanks to Japanese Translator [maborosohin](https://github.com/maboroshi
 
 ### Screenshots
 
+<p float="left" align="center">
+
 <img src="img/screen.png" width="40%" height="40%">
 
 <img src="img/airplay.png" width="40%" height="40%">
+
+</p>
+
+### Usage Hints
+
+Click on the time marker to the right of the progress bar to switch between different display modes.
+
+ShairportQt offers a tray icon which may be
+disabled. If the function `Show "Now Playing" in Tray` is switched on, title information will only appear in
+the tray if the main window is not visible on the desktop.
+To completely hide/restore the main window from the taskbar you have to click
+on the tray icon (on `Windows` it's a double click). A tray menu
+will show up when you right click on the tray icon.
+
+The multimedia buttons at the bottom of the main window are being used to remotely control
+your connected device. This also applies to the volume buttons, so it's
+*not* your local volume which will increase/decrease.
