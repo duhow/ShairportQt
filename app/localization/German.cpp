@@ -73,6 +73,12 @@ namespace Localization::German
 		case StringID::TOOLTIP_NEXT_TRACK:
 			return "Vorw"s + CW2AEX(L"\xe4"s) + "rts"s;
 
+		case StringID::TOOLTIP_VOLUME_UP:
+			return "Lauter"s;
+
+		case StringID::TOOLTIP_VOLUME_DOWN:
+			return "Leiser"s;
+
 		case StringID::TOOLTIP_PLAY_PAUSE:
 			return "Abspielen/Pause"s;
 

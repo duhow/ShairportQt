@@ -142,6 +142,22 @@ HairTunes::HairTunes(const SharedPtr<IValueCollection> config, const SharedPtr<I
 
     alac::allocate_buffers(m_decoder);	
 
+    // pre-fill the ring buffer for resend-requests
+    for (int i = 0; i < 10; ++i)
+    {
+        m_ringResend.emplace_back(make_unique<ResendRequest>());
+    }
+
+    // start 2 threads which will handle the resend-requests
+    for (auto& resendThread : m_threadsResend)
+    {
+        resendThread = make_unique<thread>([this]()
+            {
+                HandleResendRequest();
+            });
+    }
+
+    // start the main thread
     m_queueThread = make_unique<thread>([this]()
     {
         const SuspendInhibitor suspendInhibitor{ "ShairportQt", "Playing" };
@@ -165,7 +181,10 @@ HairTunes::~HairTunes()
     ++m_flush;
     m_stopThread = true;
 
-    m_condQueue.NotifyAll();
+    {
+        const unique_lock<mutex> sync(m_mtxQueue);
+        m_condQueue.NotifyAll();
+    }
 
     if (m_queueThread)
     {
@@ -182,6 +201,28 @@ HairTunes::~HairTunes()
         }
         m_queueThread.reset();
     }
+    {
+        const unique_lock<mutex> sync(m_mtxResend);
+        m_queueResend.clear();
+        m_condResend.NotifyAll();
+    }
+
+    for (auto& resendThread : m_threadsResend)
+    {
+        if (resendThread && resendThread->joinable())
+        {
+            try
+            {
+                resendThread->join();
+            }
+            catch (...)
+            {
+                assert(false);
+            }
+        }
+        resendThread.reset();
+    }
+
     if (m_decoder)
     {
         alac::destroy_alac(m_decoder);
@@ -241,36 +282,83 @@ uint64_t HairTunes::GetSamplingFreq() const noexcept
     return m_samplingRate;
 }
 
-bool HairTunes::AsyncRequestResend(const unique_lock<mutex>& sync, const USHORT nSeq, const short nCount) noexcept
+bool HairTunes::AsyncRequestResend(const USHORT nSeq, const short nCount) noexcept
 {
-    if (sync.owns_lock())
+    try
     {
-        try
-        {
-            for (const auto& item : m_asyncResend)
-            {
-                if (item->seq == nSeq && item->count == nCount)
-                {
-                    return false;
-                }
-            }
+        unique_lock<mutex> sync(m_mtxResend);
 
-            m_asyncResend.emplace_back(make_unique<ResendRequest>(nSeq, nCount,
-                async(launch::async, [this](const USHORT seq, const short n)
-                    {
-                        RequestResend(seq, n);
-                    }, nSeq, nCount)));
-            return true;
-        }
-        catch(...)
+        for (const auto& item : m_queueResend)
         {
+            if (item->seq == nSeq && item->count == nCount)
+            {
+                return false;
+            }
         }
+        ResendRequestPtr item;
+
+        if (!m_ringResend.empty())
+        {
+            item = move(m_ringResend.front());
+            m_ringResend.pop_front();
+
+            item->count = nCount;
+            item->seq = nSeq;
+        }
+        else
+        {
+            item = make_unique<ResendRequest>(nSeq, nCount);
+        }
+        assert(item);
+        m_queueResend.emplace_back(move(item));
+        m_condResend.NotifyAndUnlock(sync);
+
+        return true;
     }
-    else
+    catch(...)
     {
-        assert(false);
     }
     return false;
+}
+
+void HairTunes::HandleResendRequest() noexcept
+{
+    unique_lock<mutex> sync(m_mtxResend);
+
+    while (!m_stopThread)
+    {
+        if (m_queueResend.empty())
+        {
+            m_condResend.WaitAndLock(sync);
+
+            if (m_queueResend.empty())
+            {
+                continue;
+            }
+
+            if (m_stopThread)
+            {
+                return;
+            }
+        }
+        auto resendRequest = move(m_queueResend.front());
+        m_queueResend.pop_front();
+
+        sync.unlock();
+
+        assert(resendRequest);
+        RequestResend(resendRequest->seq, resendRequest->count);
+
+        sync.lock();
+
+        try
+        {
+            m_ringResend.emplace_back(move(resendRequest));
+        }
+        catch (...)
+        {
+        }
+    }
 }
 
 void HairTunes::RunQueue() noexcept
@@ -336,7 +424,7 @@ void HairTunes::RunQueue() noexcept
                 // try to request packets again, if lost
                 if (diffSeq > 1)
                 {
-                    if (AsyncRequestResend(sync, m_packetQueue.front()->getSeqNo() + 1, diffSeq - 1))
+                    if (AsyncRequestResend(m_packetQueue.front()->getSeqNo() + 1, diffSeq - 1))
                     {
                         spdlog::debug("wait until packet {} will arrive", m_packetQueue.front()->getSeqNo() + 1);
                         break;
@@ -472,24 +560,10 @@ void HairTunes::RunQueue() noexcept
             // lock before we loop
             sync.lock();
         } while (m_flush ? !m_packetQueue.empty() : m_packetQueue.size() > m_lowLevelQueue);
-
-        // garbage out the asynchronous resend requests
-        for (auto asyncResend = m_asyncResend.begin(); asyncResend != m_asyncResend.end(); )
-        {
-            if ((*asyncResend)->async.wait_for(0ms) == future_status::ready)
-            {
-                asyncResend = m_asyncResend.erase(asyncResend);
-            }
-            else
-            {
-                ++asyncResend;
-            }
-        }
     }
     assert(m_packetQueue.empty());
 
     streamPCM->SetMode(BlobStream::Mode::pipeClosed);
-    m_asyncResend.clear();
 
     if (playAudio.valid())
     {
@@ -598,7 +672,7 @@ void HairTunes::QueuePacket(unique_ptr<RtpPacket>&& p, bool isResendPacket)
 					{
                         if (!isResendPacket)
                         {
-                            AsyncRequestResend(sync, backSeqNo+1, nSeqDiff-1);
+                            AsyncRequestResend(backSeqNo+1, nSeqDiff-1);
 
                             m_packetQueue.emplace_back(move(p));
                             spdlog::debug("requested resend {} -> {}", backSeqNo+1, nCurSeq-1);

@@ -195,6 +195,8 @@ private:
     const QIcon                         m_iconPause;
     QPointer<QPushButton>               m_buttonPreviousTrack;
     QPointer<QPushButton>               m_buttonNextTrack;
+    QPointer<QPushButton>               m_buttonVolumeDown;
+    QPointer<QPushButton>               m_buttonVolumeUp;
     QPointer<QPushButton>               m_buttonPlayPauseTrack;
 
     // Tray

@@ -15,7 +15,7 @@ class 	WavePlayThread;
 class AudioPlayer 
 {
 public:
-	AudioPlayer();
+	AudioPlayer(const std::string device = "default");
 	~AudioPlayer();
 
 	// data stream
@@ -38,5 +38,6 @@ public:
 protected:
 	IStream*						m_pAudioData;
 	std::shared_ptr<WavePlayThread>	m_threadWavePlay;
+	const std::string				m_device;
 };
 
