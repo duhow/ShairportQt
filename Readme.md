@@ -64,22 +64,6 @@ sudo ./install.sh
 
 Afterwards `ShairportQt` application should be available from your start menu.
 
-### Avahi (aka Bonjour)
-
-For Windows you may need to download and install [`Bonjour`](https://support.apple.com/kb/DL999). 
-When being asked during the installation ... just dismiss the option to automatically update Bonjour's files in the background. 
-Which may save you from having another unnecessary process running on your machine.
-A desktop-link for Bonjour is also completely unnecessary.
-
-For Linux you may need to enable/start the `avahi-daemon`:
-
-- `sudo systemctl enable avahi-daemon`
-- `sudo systemctl start avahi-daemon`
-
-On my Raspbian ... I had to install `libavahi-compat-libdnssd-dev`.
-
-- `sudo apt install libavahi-compat-libdnssd-dev`
-
 ## Problem reports
 
 When you have issues with `ShairportQt` please provide following informations:
@@ -142,3 +126,25 @@ will show up when you right click on the tray icon.
 The multimedia buttons at the bottom of the main window are being used to remotely control
 your connected device. This also applies to the volume buttons, so it's
 *not* your local volume which will increase/decrease.
+
+### Avahi (aka Bonjour)
+
+For Windows you may need to download and install [`Bonjour`](https://support.apple.com/kb/DL999). 
+When being asked during the installation ... just dismiss the option to automatically update Bonjour's files in the background. 
+Which may save you from having another unnecessary process running on your machine.
+A desktop-link for Bonjour is also completely unnecessary.
+
+On my Raspbian ... I had to install `libavahi-compat-libdnssd-dev`.
+
+- `sudo apt install libavahi-compat-libdnssd-dev`
+
+For Linux you may need to enable/start the `avahi-daemon`:
+
+- `sudo systemctl enable avahi-daemon`
+- `sudo systemctl start avahi-daemon`
+
+On some Linux distributions you may install `avahi` via their own desktop installation tool. Please see my
+Video "Installation of ShaiportQt on Suse":
+
+<video src="img/ShairportQt_Installation_on_Suse.mp4" width="640" height="360" controls></video>
+
