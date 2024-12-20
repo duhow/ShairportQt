@@ -146,5 +146,4 @@ For Linux you may need to enable/start the `avahi-daemon`:
 On some Linux distributions you may install `avahi` via their own desktop installation tool. Please see my
 Video "Installation of ShaiportQt on Suse":
 
-[avahi and ShairportQt on Suse Linux](https://github.com/Frank-Friemel/ShairportQt/blob/a4b8a66350a0ab620c900295493d69690e2d70fd/img/ShairportQt_Installation_on_Suse.mp4) 
-
+<video src="https://youtu.be/UIfek93D5Hw" width="640" height="360" controls></video>
