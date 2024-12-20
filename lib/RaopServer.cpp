@@ -56,9 +56,12 @@ RaopServer::RaopServer(SharedPtr<IValueCollection> config, SharedPtr<DnsSD> dnsS
 
 RaopServer::~RaopServer()
 {
-	m_srvHttp->stop();
+	if (m_srvHttp)
+	{
+		m_srvHttp->stop();
+	}
 
-	if (m_httpServerThread->joinable())
+	if (m_httpServerThread && m_httpServerThread->joinable())
 	{
 		try
 		{
