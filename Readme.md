@@ -143,6 +143,6 @@ For Linux you may need to enable/start the `avahi-daemon`:
 - `sudo systemctl enable avahi-daemon`
 - `sudo systemctl start avahi-daemon`
 
-On some Linux distributions you may install `avahi` via their own desktop installation tool. Please see my
+On some Linux distributions you may have to install `avahi` via their own desktop installation tool. Please see my
 Video [Installation of ShaiportQt on Suse](https://youtu.be/UIfek93D5Hw).
 
