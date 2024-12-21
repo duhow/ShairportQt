@@ -24,8 +24,9 @@
 using namespace std;
 using namespace literals;
 
-MainDlg::MainDlg(const SharedPtr<IValueCollection>& config)
+MainDlg::MainDlg(const SharedPtr<IValueCollection>& config, const std::string& configName)
     : m_config{ config }
+    , m_strConfigName{ configName }
     , m_dnsSD{ MakeShared<DnsSD>() }
     , m_iconShairportQt{ ":/ShairportQt.ico" }
     , m_iconPlay{ ":/play.png" }
@@ -726,6 +727,11 @@ void MainDlg::ConfigureDacpBrowser()
 QString MainDlg::GetString(int id) const
 {
     return GetLanguageManager(m_config)->GetString(id).c_str();
+}
+
+std::string MainDlg::GetAutoStartConfig() const
+{
+    return "ShairportQt"s + m_strConfigName;
 }
 
 void MainDlg::SendDacpCommand(const string& cmd)
@@ -1671,7 +1677,7 @@ void MainDlg::OnChangeAirport()
     {
         string strAutostart;
 
-        if (GetValueFromRegistry(HKEY_CURRENT_USER, "ShairportQt", strAutostart, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"))
+        if (GetValueFromRegistry(HKEY_CURRENT_USER, GetAutoStartConfig().c_str(), strAutostart, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"))
         {
             autostart = !strAutostart.empty();
         }
@@ -1822,15 +1828,17 @@ void MainDlg::OnChangeAirport()
                     throw runtime_error("could not get file path");
                 }
 
-                const string autostartPath = "\""s + string(filePath) + "\""s;
-                if (!PutValueToRegistry(HKEY_CURRENT_USER, "ShairportQt", autostartPath.c_str(), "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"))
+                const string autostartPath = "\""s + string(filePath) + "\""s + (m_strConfigName.empty() ? ""s : " -config="s + m_strConfigName);
+
+                if (!PutValueToRegistry(HKEY_CURRENT_USER, GetAutoStartConfig().c_str()
+                    , autostartPath.c_str(), "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"))
                 {
                     throw runtime_error("could not add autostart value to registry");
                 }
             }
             else
             {
-                if (!RemoveValueFromRegistry(HKEY_CURRENT_USER, "ShairportQt", "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"))
+                if (!RemoveValueFromRegistry(HKEY_CURRENT_USER, GetAutoStartConfig().c_str(), "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"))
                 {
                     throw runtime_error("could not remove autostart value from registry");
                 }

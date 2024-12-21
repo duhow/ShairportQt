@@ -30,6 +30,9 @@ static SharedPtr<IValueCollection> LoadConfig();
 static void SaveConfig(const SharedPtr<IValueCollection>& config);
 static void InitializeConfig(const SharedPtr<IValueCollection>& config);
 
+static string g_strConfigFileName   = ".ShairportQt_Config.json"s;
+static string g_strConfigName;
+
 // commandline parameters for debugging (Visual Studio):
 // .../ShairportQt/.vs/launch.vs.json
 // https://stackoverflow.com/questions/30104520/adding-command-line-arguments-to-project
@@ -47,6 +50,29 @@ int main(int argc, char** argv)
                 if (strstr(argv[nArg], "-log"))
                 {
                     debugLogToFile = true;
+                }
+                else if (const char* configName = strstr(argv[nArg], "-config="))
+                {
+                    configName += strlen("-config=");
+
+                    while (*configName)
+                    {
+                        const char c = *configName;
+
+                        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))
+                        {
+                            g_strConfigName += c;
+                        }
+                        ++configName;
+                    }
+
+                    if (!g_strConfigName.empty())
+                    {
+                        const auto pos = g_strConfigFileName.rfind('.');
+                        assert(pos != string::npos);
+
+                        g_strConfigFileName.insert(pos, g_strConfigName);
+                    }
                 }
             }
         }
@@ -113,7 +139,7 @@ int main(int argc, char** argv)
         if (app)
         {
             // create GUI
-            MainDlg mainDialog(config);
+            MainDlg mainDialog(config, g_strConfigName);
 
             // QT best practices:
             // https://de.slideshare.net/slideshow/how-to-make-your-qt-app-look-native/2622616
@@ -184,7 +210,7 @@ int main(int argc, char** argv)
 
 static string GetConfigPath()
 {
-    return GetHomeDirectoryA() + GetPathDelimiter() + ".ShairportQt_Config.json"s;
+    return GetHomeDirectoryA() + GetPathDelimiter() + g_strConfigFileName;
 }
 
 static SharedPtr<IValueCollection> LoadConfig()

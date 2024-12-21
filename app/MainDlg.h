@@ -44,7 +44,7 @@ class MainDlg
     Q_OBJECT
 
 public:
-    MainDlg(const SharedPtr<IValueCollection>& config);
+    MainDlg(const SharedPtr<IValueCollection>& config, const std::string& configName);
     ~MainDlg();
 
 private:
@@ -61,6 +61,7 @@ private:
     void SendDacpCommand(const std::string& cmd);
 
     QString GetString(int id) const;
+    std::string GetAutoStartConfig() const;
 
 protected:
     // implemenation of IRaopEvents
@@ -127,6 +128,7 @@ private:
     using TimePoint = std::chrono::steady_clock::time_point;
 
     const SharedPtr<IValueCollection>  	m_config;
+    const std::string                   m_strConfigName;
     const SharedPtr<DnsSD>              m_dnsSD;
     const KeyboardHook::Handle          m_handleKeyboardHook;
     std::mutex                          m_mtx;
