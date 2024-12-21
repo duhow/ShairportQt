@@ -745,6 +745,7 @@ void HairTunes::OnRequest(RtpEndpoint*, unique_ptr<RtpPacket>&& packet)
 {
 	const uint8_t type = packet->getPayloadType();
 
+    // https://openairplay.github.io/airplay-spec/audio/rtp_streams.html
 	switch (type)
 	{
 		case PAYLOAD_TYPE_RESEND_RESPONSE:
