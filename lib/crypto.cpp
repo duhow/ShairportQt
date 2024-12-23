@@ -238,23 +238,25 @@ Rsa::~Rsa()
 
 std::vector<uint8_t> Rsa::Sign(const std::vector<uint8_t>& input) const
 {
-    const std::lock_guard<std::mutex> guard(m_mtx);
-
     std::vector<uint8_t> output;
     
-    ((RsaInternal*)m_handle)->Sign(NULL, input.data(), static_cast<ULONG>(input.size()), output);
-
+    if (!input.empty())
+    {
+        const std::lock_guard<std::mutex> guard(m_mtx);
+        ((RsaInternal*)m_handle)->Sign(NULL, input.data(), static_cast<ULONG>(input.size()), output);
+    }
     return output;
 }
 
 std::vector<uint8_t> Rsa::Decrypt(const std::vector<uint8_t>& input) const
 {
-    const std::lock_guard<std::mutex> guard(m_mtx);
-
     std::vector<uint8_t> output;
 
-    ((RsaInternal*)m_handle)->Crypt(RsaInternal::cryptMode::decrypt_oaep, input.data(), static_cast<ULONG>(input.size()), output, BCRYPT_SHA1_ALGORITHM);
-
+    if (!input.empty())
+    {
+        const std::lock_guard<std::mutex> guard(m_mtx);
+        ((RsaInternal*)m_handle)->Crypt(RsaInternal::cryptMode::decrypt_oaep, input.data(), static_cast<ULONG>(input.size()), output, BCRYPT_SHA1_ALGORITHM);
+    }
     return output;
 }
 
@@ -381,25 +383,31 @@ Rsa::~Rsa()
 
 std::vector<uint8_t> Rsa::Sign(const std::vector<uint8_t>& input) const
 {
-    const std::lock_guard<std::mutex> guard(m_mtx);
-
     std::vector<uint8_t> output;
-    output.resize(RSA_size((RSA*)m_handle));
 
-    output.resize(RSA_private_encrypt(static_cast<int>(input.size()), input.data(), output.data(), (RSA*)m_handle,
+    if (!input.empty())
+    {
+        const std::lock_guard<std::mutex> guard(m_mtx);
+
+        output.resize(RSA_size((RSA*)m_handle));
+        output.resize(RSA_private_encrypt(static_cast<int>(input.size()), input.data(), output.data(), (RSA*)m_handle,
                                         RSA_PKCS1_PADDING));
+    }
     return output;
 }
 
 std::vector<uint8_t> Rsa::Decrypt(const std::vector<uint8_t>& input) const
 {
-    const std::lock_guard<std::mutex> guard(m_mtx);
-
     std::vector<uint8_t> output;
-    output.resize(RSA_size((RSA*)m_handle));
 
-    output.resize(RSA_private_decrypt(static_cast<int>(input.size()), input.data(), output.data(), (RSA*)m_handle,
+    if (!input.empty())
+    {
+        const std::lock_guard<std::mutex> guard(m_mtx);
+
+        output.resize(RSA_size((RSA*)m_handle));
+        output.resize(RSA_private_decrypt(static_cast<int>(input.size()), input.data(), output.data(), (RSA*)m_handle,
                                         RSA_PKCS1_OAEP_PADDING));
+    }
     return output;
 }
 

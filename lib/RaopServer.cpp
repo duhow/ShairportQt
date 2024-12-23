@@ -641,10 +641,9 @@ void RaopServer::Run() noexcept
 						response.set_header("Audio-Latency"s, "6174"s);
 					}
 				}
-				catch (...)
+				catch (const exception& e)
 				{
-					spdlog::error("exception in rtp request handler");
-					assert(false);
+					spdlog::error("exception in rtp request handler: {}", e.what());
 				}
 			});
 
