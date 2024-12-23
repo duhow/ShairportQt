@@ -101,10 +101,17 @@ SharedPtr<IValueCollection> RaopServer::GetClient(const string& remoteAddr, bool
 	return move(client.value());
 }
 
-void RaopServer::RemoveClient(const string& remoteAddr) noexcept
+bool RaopServer::RemoveClient(const string& remoteAddr) noexcept
 {
+	const VariantValue::Key client(remoteAddr);
+
 	// remove client from collection
-	m_clients->Remove(VariantValue::Key(remoteAddr));
+	if (m_clients->Has(client))
+	{
+		m_clients->Remove(client);
+		return true;
+	}
+	return false;
 }
 
 bool RaopServer::IsPlaying() const noexcept
@@ -153,10 +160,21 @@ void RaopServer::Run() noexcept
 		m_srvHttp->set_keep_alive_max_count(numeric_limits<size_t>::max());
 
 		// setup "get" handler for http
-		m_srvHttp->Get(".+", [&](const httplib::Request& request, httplib::Response& response)
+		m_srvHttp->Get(".+"s, [&](const httplib::Request& request, httplib::Response& response)
 			{
 				try
 				{
+#if defined(_DEBUG) && defined(_WIN32)
+					if (request.method != "OPTIONS"s && request.method != "SET_PARAMETER"s)
+					{
+						string header;
+						for (const auto& hh : request.headers)
+						{
+							header += (hh.first + ":"s + hh.second + "\n"s);
+						}
+						spdlog::info("--------\n{}\n{}\n", request.method, header);
+					}
+#endif
 					response.version = request.version;
 
 					response.set_header("CSeq"s, request.get_header_value("CSeq"s));
@@ -538,11 +556,16 @@ void RaopServer::Run() noexcept
 							}
 							const lock_guard<shared_mutex> guard(m_mtxDecoder);
 
-							m_decoder.reset();
+							if (m_decoder)
+							{
+								m_decoder->Flush();
+								m_decoder.reset();
+							}
 
 							try
 							{
 								m_decoder = make_unique<HairTunes>(m_config, move(client));
+								assert(!client.IsValid());
 
 								const unsigned int serverPort = m_decoder->GetServerPort();
 								const unsigned int controlPort = m_decoder->GetControlPort();
@@ -559,9 +582,9 @@ void RaopServer::Run() noexcept
 								response.set_header("Transport"s, transportResponse);
 								response.set_header("Session"s, "DEADBEEF"s);
 							}
-							catch (...)
+							catch (const exception& e)
 							{
-								spdlog::error("failed to setup decoder");
+								spdlog::error("failed to setup decoder: {}", e.what());
 								response.status = 503; // Service Unavailable
 
 								// cleanup
@@ -571,14 +594,33 @@ void RaopServer::Run() noexcept
 					}
 					else if (request.method == "FLUSH"s)
 					{
+						unsigned int flushSeq = 0;
 						response.set_header("RTP-Info"s, "rtptime=0"s);
+
+						if (request.has_header("RTP-Info"s))
+						{
+							const auto rtpInfo = request.get_header_value("RTP-Info"s);
+
+							ParseRegEx(rtpInfo, "seq=\\d+"s, [&flushSeq](const string s) -> bool
+								{
+									flushSeq = static_cast<unsigned int>(atoi(s.c_str() + 4));
+									return false;
+								});
+						}
+						const lock_guard<shared_mutex> guard(m_mtxDecoder);
+
+						if (m_decoder)
+						{
+							m_decoder->Flush(flushSeq);
+						}
 					}
 					else if (request.method == "TEARDOWN"s)
 					{
-						RemoveClient(request.remote_addr);
-						response.set_header("Connection"s, "close"s);
-						spdlog::debug("client {} torn down", request.remote_addr);
-
+						if (RemoveClient(request.remote_addr))
+						{
+							response.set_header("Connection"s, "close"s);
+							spdlog::debug("client {} torn down", request.remote_addr);
+						}
 						unique_ptr<HairTunes> decoder;
 						{
 							const lock_guard<shared_mutex> guard(m_mtxDecoder);

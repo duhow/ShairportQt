@@ -25,8 +25,9 @@ namespace Crypto
         Aes(const std::vector<uint8_t>& key);
         ~Aes();
 
-        void Decrypt(const unsigned char* in, unsigned char* out, size_t size, uint8_t* iv, size_t ivLen);
-    
+        void Decrypt(const unsigned char* in, unsigned char* out, size_t size, uint8_t* iv, size_t ivLen) const;
+        bool IsValid() const noexcept;
+
     private:
         void* m_handle;
         mutable std::mutex m_mtx;

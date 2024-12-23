@@ -74,7 +74,7 @@ protected:
 
 private:
 	SharedPtr<IValueCollection> GetClient(const std::string& remoteAddr, bool create);
-	void RemoveClient(const std::string& remoteAddr) noexcept;
+	bool RemoveClient(const std::string& remoteAddr) noexcept;
 
 public:
 	const bool								m_metaInfo;

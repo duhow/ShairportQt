@@ -121,3 +121,18 @@ TEST(Trim, FromHex)
         EXPECT_EQ(n, 20703);
     }
 }
+
+TEST(Trim, ParseRegEx)
+{
+    const string rtpInfo = "trash=10;seq=4161;rtptime=3439233566"s;
+
+    int result = 0;
+
+    ParseRegEx(rtpInfo, "seq=\\d+"s, [&result](const string s) -> bool
+        {
+            result = atoi(s.c_str() + 4);
+            return false;
+        });
+
+    EXPECT_EQ(result, 4161);
+}

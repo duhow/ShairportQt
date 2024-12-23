@@ -73,23 +73,23 @@ static int16_t ApplyVolumeToChannel(const int16_t in, const double lfVolume, dou
     return out;
 }
 
-HairTunes::HairTunes(const SharedPtr<IValueCollection> config, const SharedPtr<IValueCollection>& client)
+HairTunes::HairTunes(const SharedPtr<IValueCollection> config, SharedPtr<IValueCollection>&& client)
     : m_config{ move(config) }
-    , m_client{ client }
+    , m_client{ move(client) }
     , m_lowLevelQueue{ VariantValue::Key("LowLevelRTP").Get<size_t>(config) } 
     , m_highLevelQueue{ VariantValue::Key("LowLevelRTP").Get<size_t>(config) +
                         VariantValue::Key("LevelOffsetRTP").Get<size_t>(config) } 
-    , m_remoteControlPort{ VariantValue::Key("control_port").Get<int>(client) }
-    , m_clientID{ VariantValue::Key("ID").Get<string>(client) }
+    , m_remoteControlPort{ VariantValue::Key("control_port").Get<int>(m_client) }
+    , m_clientID{ VariantValue::Key("ID").Get<string>(m_client) }
     , m_decoder{ nullptr }
     , m_stopThread{ false }
     , m_flush{ 0 }
-    , m_aes{ VariantValue::Key("rsaaeskey").Get<vector<uint8_t>>(client) }
-    , m_iv{ VariantValue::Key("aesiv").Get<vector<uint8_t>>(client) }
+    , m_aes{ VariantValue::Key("rsaaeskey").Get<vector<uint8_t>>(m_client) }
+    , m_iv{ VariantValue::Key("aesiv").Get<vector<uint8_t>>(m_client) }
     , m_progressData{ 0 }
     , m_pendingData{ 0 }
 {
-    if (m_iv.size() != 16)
+    if (m_aes.IsValid() && m_iv.size() != 16)
     {
         throw runtime_error("intialization vector has wrong format");
     }
@@ -98,7 +98,7 @@ HairTunes::HairTunes(const SharedPtr<IValueCollection> config, const SharedPtr<I
 
     assert(m_remoteControlPort);
 
-    const auto fmtp = VariantValue::Key("fmtp").Get<string>(client);
+    const auto fmtp = VariantValue::Key("fmtp").Get<string>(m_client);
     assert(!fmtp.empty());
 
     vector<int> fmtpList;
@@ -178,11 +178,16 @@ HairTunes::~HairTunes()
     m_controlEndpoint.reset();
     m_timingEndpoint.reset();
 
-    ++m_flush;
+    m_flush = 0xffffffff;
     m_stopThread = true;
 
     {
         const unique_lock<mutex> sync(m_mtxQueue);
+
+        if (!m_isPlaying)
+        {
+            m_packetQueue.clear();
+        }
         m_condQueue.NotifyAll();
     }
 
@@ -238,15 +243,21 @@ void HairTunes::AlacDecode(unique_ptr<RtpPacket>& packet)
 	unsigned char dest[RAOP_PACKET_MAX_SIZE];
 
 	assert (len <= RAOP_PACKET_MAX_SIZE);
-    const int aeslen = len & ~0xf;
 
-    uint8_t iv[16];
+    if (m_aes.IsValid())
+    {
+        const int aeslen = len & ~0xf;
 
-    memcpy(iv, m_iv.data(), 16);
-    m_aes.Decrypt(pBuf, dest, aeslen, iv, 16);
+        uint8_t iv[16];
 
-    memcpy(dest+aeslen, pBuf+aeslen, len-aeslen);  
-
+        memcpy(iv, m_iv.data(), 16);
+        m_aes.Decrypt(pBuf, dest, aeslen, iv, 16);
+        memcpy(dest + aeslen, pBuf + aeslen, len - aeslen);
+    }
+    else
+    {
+        memcpy(dest, pBuf, len);
+    }
     packet->resize(m_frameBytes);
 
 	int outsize = 0;
@@ -559,7 +570,8 @@ void HairTunes::RunQueue() noexcept
 
             // lock before we loop
             sync.lock();
-        } while (m_flush ? !m_packetQueue.empty() : m_packetQueue.size() > m_lowLevelQueue);
+        } while (m_flush ? !m_packetQueue.empty() && m_flush.load() > static_cast<unsigned int>(m_packetQueue.front()->getSeqNo()) 
+            : m_packetQueue.size() > m_lowLevelQueue);
     }
     assert(m_packetQueue.empty());
 
@@ -598,20 +610,46 @@ void HairTunes::RequestResend(const USHORT nSeq, const short nCount) noexcept
     }
 }
 
-void HairTunes::Flush()
+void HairTunes::Flush(unsigned int seq /*= 0*/)
 {
     unique_lock<mutex> sync(m_mtxQueue);
-    ++m_flush;
-    spdlog::info("flushing while {} packets are queued", m_packetQueue.size());
 
-    while(!m_packetQueue.empty())
+    if (m_packetQueue.empty())
     {
-        m_condQueue.NotifyAndUnlock(sync);
-        this_thread::sleep_for(5ms);
-        sync.lock();
+        return;
     }
-    --m_flush;
-    spdlog::info("flushing done: {}", m_flush.load());
+    if (seq == 0)
+    {
+        seq = static_cast<unsigned int>(m_packetQueue.back()->getSeqNo()) + 1;
+    }
+
+    if (seq > static_cast<unsigned int>(m_packetQueue.front()->getSeqNo()))
+    {
+        m_flush = seq;
+
+        spdlog::info("flushing to seq {} while {} packets are queued: {} - {}", seq, m_packetQueue.size()
+            , m_packetQueue.front()->getSeqNo()
+            , m_packetQueue.back()->getSeqNo());
+
+        do
+        {
+            m_condQueue.NotifyAndUnlock(sync);
+            this_thread::sleep_for(5ms);
+            sync.lock();
+        } while (!m_packetQueue.empty() && seq > static_cast<unsigned int>(m_packetQueue.front()->getSeqNo()));
+
+        m_flush = 0;
+
+        if (m_isPlaying && m_packetQueue.empty())
+        {
+            m_isPlaying = false;
+        }
+    }
+    else
+    {
+        spdlog::info("there's nothing to flush");
+    }
+    spdlog::info("flushing done - {} packets are queued", m_packetQueue.size());
 }
 
 const std::string& HairTunes::GetClientID() const noexcept
@@ -734,11 +772,6 @@ void HairTunes::QueuePacket(unique_ptr<RtpPacket>&& p, bool isResendPacket)
 			m_packetQueue.emplace_back(move(p));
 		}
 	}
-    else
-    {
-        // unexpected data size
-        assert(false);
-    }
 }
 
 void HairTunes::OnRequest(RtpEndpoint*, unique_ptr<RtpPacket>&& packet)

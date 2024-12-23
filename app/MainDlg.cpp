@@ -734,6 +734,9 @@ std::string MainDlg::GetAutoStartConfig() const
     return "ShairportQt"s + m_strConfigName;
 }
 
+//
+// https://openairplay.github.io/airplay-spec/audio/remote_control.html
+//
 void MainDlg::SendDacpCommand(const string& cmd)
 {
     unique_lock<mutex> sync(m_mtx);
@@ -1470,6 +1473,14 @@ void MainDlg::closeEvent(QCloseEvent* event)
         const ScopeContext restoreOverrideCursor([]() {
             QApplication::restoreOverrideCursor();
             });
+
+        // is Dacp available?
+        if (m_currentDacpID.id)
+        {
+            // by chance ... try to convince the AirPlay sender
+            // to stop playing via Dacp
+            SendDacpCommand("stop"s);
+        }
 
         if (m_systemTray)
         {
