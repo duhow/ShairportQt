@@ -24,8 +24,9 @@
 using namespace std;
 using namespace literals;
 
-MainDlg::MainDlg(const SharedPtr<IValueCollection>& config)
+MainDlg::MainDlg(const SharedPtr<IValueCollection>& config, const std::string& configName)
     : m_config{ config }
+    , m_strConfigName{ configName }
     , m_dnsSD{ MakeShared<DnsSD>() }
     , m_iconShairportQt{ ":/ShairportQt.ico" }
     , m_iconPlay{ ":/play.png" }
@@ -728,6 +729,14 @@ QString MainDlg::GetString(int id) const
     return GetLanguageManager(m_config)->GetString(id).c_str();
 }
 
+std::string MainDlg::GetAutoStartConfig() const
+{
+    return "ShairportQt"s + m_strConfigName;
+}
+
+//
+// https://openairplay.github.io/airplay-spec/audio/remote_control.html
+//
 void MainDlg::SendDacpCommand(const string& cmd)
 {
     unique_lock<mutex> sync(m_mtx);
@@ -1465,6 +1474,14 @@ void MainDlg::closeEvent(QCloseEvent* event)
             QApplication::restoreOverrideCursor();
             });
 
+        // is Dacp available?
+        if (m_currentDacpID.id)
+        {
+            // by chance ... try to convince the AirPlay sender
+            // to stop playing via Dacp
+            SendDacpCommand("stop"s);
+        }
+
         if (m_systemTray)
         {
             m_systemTray->hide();
@@ -1624,7 +1641,8 @@ void MainDlg::OnAbout()
     QPixmap pixmap(":/ShairportQt.ico");
     labelPixmap->setPixmap(pixmap.scaled(64, 64));
 
-    QPointer<QLabel> versionLabel = new QLabel(tr("<p><a href=\"https://github.com/Frank-Friemel/ShairportQt\">ShairportQt</a> 1.0.0.2</p>"));
+    // search for regular expression "1[., ]+0[., ]+0[., ]+3"
+    QPointer<QLabel> versionLabel = new QLabel(tr("<p><a href=\"https://github.com/Frank-Friemel/ShairportQt\">ShairportQt</a> 1.0.0.3</p>"));
 
     dlg->connect(versionLabel, &QLabel::linkActivated, [](QString link)
         {
@@ -1671,7 +1689,7 @@ void MainDlg::OnChangeAirport()
     {
         string strAutostart;
 
-        if (GetValueFromRegistry(HKEY_CURRENT_USER, "ShairportQt", strAutostart, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"))
+        if (GetValueFromRegistry(HKEY_CURRENT_USER, GetAutoStartConfig().c_str(), strAutostart, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"))
         {
             autostart = !strAutostart.empty();
         }
@@ -1822,15 +1840,17 @@ void MainDlg::OnChangeAirport()
                     throw runtime_error("could not get file path");
                 }
 
-                const string autostartPath = "\""s + string(filePath) + "\""s;
-                if (!PutValueToRegistry(HKEY_CURRENT_USER, "ShairportQt", autostartPath.c_str(), "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"))
+                const string autostartPath = "\""s + string(filePath) + "\""s + (m_strConfigName.empty() ? ""s : " -config="s + m_strConfigName);
+
+                if (!PutValueToRegistry(HKEY_CURRENT_USER, GetAutoStartConfig().c_str()
+                    , autostartPath.c_str(), "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"))
                 {
                     throw runtime_error("could not add autostart value to registry");
                 }
             }
             else
             {
-                if (!RemoveValueFromRegistry(HKEY_CURRENT_USER, "ShairportQt", "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"))
+                if (!RemoveValueFromRegistry(HKEY_CURRENT_USER, GetAutoStartConfig().c_str(), "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"))
                 {
                     throw runtime_error("could not remove autostart value from registry");
                 }

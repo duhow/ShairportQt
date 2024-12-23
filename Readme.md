@@ -127,6 +127,11 @@ The multimedia buttons at the bottom of the main window are being used to remote
 your connected device. This also applies to the volume buttons, so it's
 *not* your local volume which will increase/decrease.
 
+ShairportQt allows you to start multiple process-instances with different configurations. All you need to
+do is to provide a name for your instance configuration by applying the command line parameter
+`-config=MyConfigurationName`. The allowed characters for the configuration-name
+are limited to characters `A-Z`, `a-z` and `0-9`.
+
 ### Avahi (aka Bonjour)
 
 For Windows you may need to download and install [`Bonjour`](https://support.apple.com/kb/DL999). 

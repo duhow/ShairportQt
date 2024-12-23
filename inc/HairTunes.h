@@ -19,14 +19,14 @@ class HairTunes
     : public IRtpRequestHandler
 {
 public:
-    HairTunes(const SharedPtr<IValueCollection> config, const SharedPtr<IValueCollection>& client);
+    HairTunes(const SharedPtr<IValueCollection> config, SharedPtr<IValueCollection>&& client);
     ~HairTunes();
 
     unsigned int GetServerPort() const noexcept;
     unsigned int GetControlPort() const noexcept;
     unsigned int GetTimingPort() const noexcept;
 
-    void Flush();
+    void Flush(unsigned int seq = 0);
 
     const std::string& GetClientID() const noexcept;
 
@@ -103,7 +103,7 @@ private:
     const size_t                            m_lowLevelQueue;
     const size_t                            m_highLevelQueue;
     
-    Crypto::Aes                             m_aes;
+    const Crypto::Aes                       m_aes;
     const std::vector<uint8_t>              m_iv;
 
     std::atomic_int64_t                     m_progressData;

@@ -4040,7 +4040,7 @@ inline bool parse_range_header(const std::string &s, Ranges &ranges) {
 #else
 inline bool parse_range_header(const std::string &s, Ranges &ranges) try {
 #endif
-  static auto re_first_range = std::regex(R"(bytes=(\d*-\d*(?:,\s*\d*-\d*)*))");
+  static auto re_first_range = std::regex(R"((bytes|npt)=(\d*-\d*(?:,\s*\d*-\d*)*))");
   std::smatch m;
   if (std::regex_match(s, m, re_first_range)) {
     auto pos = static_cast<size_t>(m.position(1));
@@ -6303,6 +6303,18 @@ inline bool Server::process_and_close_socket(socket_t sock) {
                                nullptr);
       });
 
+  {
+      detail::SocketStream strm(sock, read_timeout_sec_, read_timeout_usec_,
+          write_timeout_sec_, write_timeout_usec_);
+
+      Request req;
+      Response res;
+      req.method = { "TEARDOWN", 8 };
+      req.path = { "/", 1 };
+      strm.get_remote_ip_and_port(req.remote_addr, req.remote_port);
+      
+      dispatch_request(req, res, this->get_handlers_);
+  }
   detail::shutdown_socket(sock);
   detail::close_socket(sock);
   return ret;

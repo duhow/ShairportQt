@@ -238,23 +238,25 @@ Rsa::~Rsa()
 
 std::vector<uint8_t> Rsa::Sign(const std::vector<uint8_t>& input) const
 {
-    const std::lock_guard<std::mutex> guard(m_mtx);
-
     std::vector<uint8_t> output;
     
-    ((RsaInternal*)m_handle)->Sign(NULL, input.data(), static_cast<ULONG>(input.size()), output);
-
+    if (!input.empty())
+    {
+        const std::lock_guard<std::mutex> guard(m_mtx);
+        ((RsaInternal*)m_handle)->Sign(NULL, input.data(), static_cast<ULONG>(input.size()), output);
+    }
     return output;
 }
 
 std::vector<uint8_t> Rsa::Decrypt(const std::vector<uint8_t>& input) const
 {
-    const std::lock_guard<std::mutex> guard(m_mtx);
-
     std::vector<uint8_t> output;
 
-    ((RsaInternal*)m_handle)->Crypt(RsaInternal::cryptMode::decrypt_oaep, input.data(), static_cast<ULONG>(input.size()), output, BCRYPT_SHA1_ALGORITHM);
-
+    if (!input.empty())
+    {
+        const std::lock_guard<std::mutex> guard(m_mtx);
+        ((RsaInternal*)m_handle)->Crypt(RsaInternal::cryptMode::decrypt_oaep, input.data(), static_cast<ULONG>(input.size()), output, BCRYPT_SHA1_ALGORITHM);
+    }
     return output;
 }
 
@@ -262,36 +264,39 @@ Aes::Aes(const std::vector<uint8_t>& key)
 {
     m_handle = nullptr;
 
-    std::vector<uint8_t> keyBlob;
-    keyBlob.resize(sizeof(BCRYPT_KEY_DATA_BLOB_HEADER) + key.size());
-    memset(keyBlob.data(), 0, sizeof(BCRYPT_KEY_DATA_BLOB_HEADER) + key.size());
-
-    BCRYPT_ALG_HANDLE hCrypt = NULL;
-    BCRYPT_KEY_HANDLE hKey = NULL;
-
-    if (0 != ::BCryptOpenAlgorithmProvider(&hCrypt, BCRYPT_AES_ALGORITHM, NULL, 0))
+    if (!key.empty())
     {
-        throw std::runtime_error("failed to BCryptOpenAlgorithmProvider");
-    }
-    if (0 != ::BCryptSetProperty(hCrypt, BCRYPT_CHAINING_MODE, (PUCHAR)BCRYPT_CHAIN_MODE_CBC, sizeof(BCRYPT_CHAIN_MODE_CBC), 0))
-    {
-        ::BCryptCloseAlgorithmProvider(hCrypt, 0);
-        throw std::runtime_error("failed to BCryptSetProperty");
-    }
+        std::vector<uint8_t> keyBlob;
+        keyBlob.resize(sizeof(BCRYPT_KEY_DATA_BLOB_HEADER) + key.size());
+        memset(keyBlob.data(), 0, sizeof(BCRYPT_KEY_DATA_BLOB_HEADER) + key.size());
 
-    ((BCRYPT_KEY_DATA_BLOB_HEADER*)keyBlob.data())->dwMagic = BCRYPT_KEY_DATA_BLOB_MAGIC;
-    ((BCRYPT_KEY_DATA_BLOB_HEADER*)keyBlob.data())->dwVersion = BCRYPT_KEY_DATA_BLOB_VERSION1;
-    ((BCRYPT_KEY_DATA_BLOB_HEADER*)keyBlob.data())->cbKeyData = static_cast<ULONG>(key.size());
+        BCRYPT_ALG_HANDLE hCrypt = NULL;
+        BCRYPT_KEY_HANDLE hKey = NULL;
 
-    memcpy(keyBlob.data() + sizeof(BCRYPT_KEY_DATA_BLOB_HEADER), key.data(), key.size());
+        if (0 != ::BCryptOpenAlgorithmProvider(&hCrypt, BCRYPT_AES_ALGORITHM, NULL, 0))
+        {
+            throw std::runtime_error("failed to BCryptOpenAlgorithmProvider");
+        }
+        if (0 != ::BCryptSetProperty(hCrypt, BCRYPT_CHAINING_MODE, (PUCHAR)BCRYPT_CHAIN_MODE_CBC, sizeof(BCRYPT_CHAIN_MODE_CBC), 0))
+        {
+            ::BCryptCloseAlgorithmProvider(hCrypt, 0);
+            throw std::runtime_error("failed to BCryptSetProperty");
+        }
 
-    if (0 != ::BCryptImportKey(hCrypt, NULL, BCRYPT_KEY_DATA_BLOB, &hKey, NULL, 0
-        , (PUCHAR)(BCRYPT_KEY_DATA_BLOB_HEADER*)keyBlob.data(), static_cast<ULONG>(sizeof(BCRYPT_KEY_DATA_BLOB_HEADER) + key.size()), 0))
-    {
-        ::BCryptCloseAlgorithmProvider(hCrypt, 0);
-        throw std::runtime_error("failed to BCryptImportKey");
+        ((BCRYPT_KEY_DATA_BLOB_HEADER*)keyBlob.data())->dwMagic = BCRYPT_KEY_DATA_BLOB_MAGIC;
+        ((BCRYPT_KEY_DATA_BLOB_HEADER*)keyBlob.data())->dwVersion = BCRYPT_KEY_DATA_BLOB_VERSION1;
+        ((BCRYPT_KEY_DATA_BLOB_HEADER*)keyBlob.data())->cbKeyData = static_cast<ULONG>(key.size());
+
+        memcpy(keyBlob.data() + sizeof(BCRYPT_KEY_DATA_BLOB_HEADER), key.data(), key.size());
+
+        if (0 != ::BCryptImportKey(hCrypt, NULL, BCRYPT_KEY_DATA_BLOB, &hKey, NULL, 0
+            , (PUCHAR)(BCRYPT_KEY_DATA_BLOB_HEADER*)keyBlob.data(), static_cast<ULONG>(sizeof(BCRYPT_KEY_DATA_BLOB_HEADER) + key.size()), 0))
+        {
+            ::BCryptCloseAlgorithmProvider(hCrypt, 0);
+            throw std::runtime_error("failed to BCryptImportKey");
+        }
+        m_handle = new std::pair<BCRYPT_ALG_HANDLE, BCRYPT_KEY_HANDLE>(hCrypt, hKey);
     }
-    m_handle = new std::pair<BCRYPT_ALG_HANDLE, BCRYPT_KEY_HANDLE>(hCrypt, hKey);
 }
 
 Aes::~Aes()
@@ -306,7 +311,7 @@ Aes::~Aes()
     }
 }
 
-void Aes::Decrypt(const unsigned char* in, unsigned char* out, size_t size, uint8_t* iv, size_t ivLen)
+void Aes::Decrypt(const unsigned char* in, unsigned char* out, size_t size, uint8_t* iv, size_t ivLen) const
 {
     const std::lock_guard<std::mutex> guard(m_mtx);
 
@@ -319,6 +324,11 @@ void Aes::Decrypt(const unsigned char* in, unsigned char* out, size_t size, uint
     {
         throw std::runtime_error("failed to BCryptDecrypt");                    
     }
+}
+
+bool Aes::IsValid() const noexcept
+{
+    return !!m_handle;
 }
 
 #else
@@ -373,41 +383,54 @@ Rsa::~Rsa()
 
 std::vector<uint8_t> Rsa::Sign(const std::vector<uint8_t>& input) const
 {
-    const std::lock_guard<std::mutex> guard(m_mtx);
-
     std::vector<uint8_t> output;
-    output.resize(RSA_size((RSA*)m_handle));
 
-    output.resize(RSA_private_encrypt(static_cast<int>(input.size()), input.data(), output.data(), (RSA*)m_handle,
+    if (!input.empty())
+    {
+        const std::lock_guard<std::mutex> guard(m_mtx);
+
+        output.resize(RSA_size((RSA*)m_handle));
+        output.resize(RSA_private_encrypt(static_cast<int>(input.size()), input.data(), output.data(), (RSA*)m_handle,
                                         RSA_PKCS1_PADDING));
+    }
     return output;
 }
 
 std::vector<uint8_t> Rsa::Decrypt(const std::vector<uint8_t>& input) const
 {
-    const std::lock_guard<std::mutex> guard(m_mtx);
-
     std::vector<uint8_t> output;
-    output.resize(RSA_size((RSA*)m_handle));
 
-    output.resize(RSA_private_decrypt(static_cast<int>(input.size()), input.data(), output.data(), (RSA*)m_handle,
+    if (!input.empty())
+    {
+        const std::lock_guard<std::mutex> guard(m_mtx);
+
+        output.resize(RSA_size((RSA*)m_handle));
+        output.resize(RSA_private_decrypt(static_cast<int>(input.size()), input.data(), output.data(), (RSA*)m_handle,
                                         RSA_PKCS1_OAEP_PADDING));
+    }
     return output;
 }
 
 Aes::Aes(const std::vector<uint8_t>& key)
 {
-    m_handle = malloc(sizeof(AES_KEY));
-
-    if (!m_handle)
+    if (key.empty())
     {
-        throw std::bad_alloc();
+        m_handle = nullptr;
     }
-    const int result = AES_set_decrypt_key(key.data(), key.size() * 8, static_cast<AES_KEY*>(m_handle));
-
-    if (0 != result)
+    else
     {
-        throw std::runtime_error("failed to create AES key");
+        m_handle = malloc(sizeof(AES_KEY));
+
+        if (!m_handle)
+        {
+            throw std::bad_alloc();
+        }
+        const int result = AES_set_decrypt_key(key.data(), key.size() * 8, static_cast<AES_KEY*>(m_handle));
+
+        if (0 != result)
+        {
+            throw std::runtime_error("failed to create AES key");
+        }
     }
 }
 
@@ -416,10 +439,15 @@ Aes::~Aes()
     free(m_handle);
 }
 
-void Aes::Decrypt(const unsigned char* in, unsigned char* out, size_t size, uint8_t* iv, size_t)
+void Aes::Decrypt(const unsigned char* in, unsigned char* out, size_t size, uint8_t* iv, size_t) const
 {
     const std::lock_guard<std::mutex> guard(m_mtx);
     AES_cbc_encrypt(in, out, size, static_cast<AES_KEY*>(m_handle), iv, AES_DECRYPT);
+}
+
+bool Aes::IsValid() const noexcept
+{
+    return !!m_handle;
 }
 
 #endif
