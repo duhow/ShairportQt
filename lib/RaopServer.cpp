@@ -718,7 +718,7 @@ void RaopServer::Run() noexcept
 
 			// listen for incoming http-requests
 			// blocks, in case the port can be aquired by us
-			if (!m_srvHttp->listen("0.0.0.0", port))
+			if (!m_srvHttp->listen("0.0.0.0"s, port))
 			{
 				// signal the async publisher, that we've failed
 				serverFailed.set_value(true);

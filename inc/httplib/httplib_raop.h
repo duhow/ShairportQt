@@ -1711,12 +1711,11 @@ inline ssize_t Stream::write_format(const char *fmt, const Args &...args) {
 }
 
 inline void default_socket_options(socket_t sock) {
-  int yes = 1;
+  const int yes = 1;
 #ifdef _WIN32
-  setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char *>(&yes),
-             sizeof(yes));
   setsockopt(sock, SOL_SOCKET, SO_EXCLUSIVEADDRUSE,
-             reinterpret_cast<char *>(&yes), sizeof(yes));
+             reinterpret_cast<const char *>(&yes), sizeof(yes));
+
 #else
 #ifdef SO_REUSEPORT
   setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, reinterpret_cast<void *>(&yes),
@@ -1879,8 +1878,6 @@ void parse_query_text(const std::string &s, Params &params);
 
 bool parse_multipart_boundary(const std::string &content_type,
                               std::string &boundary);
-
-bool parse_range_header(const std::string &s, Ranges &ranges);
 
 int close_socket(socket_t sock) noexcept;
 
@@ -4035,48 +4032,6 @@ inline bool parse_multipart_boundary(const std::string &content_type,
   return !boundary.empty();
 }
 
-#ifdef CPPHTTPLIB_NO_EXCEPTIONS
-inline bool parse_range_header(const std::string &s, Ranges &ranges) {
-#else
-inline bool parse_range_header(const std::string &s, Ranges &ranges) try {
-#endif
-  static auto re_first_range = std::regex(R"((bytes|npt)=(\d*-\d*(?:,\s*\d*-\d*)*))");
-  std::smatch m;
-  if (std::regex_match(s, m, re_first_range)) {
-    auto pos = static_cast<size_t>(m.position(1));
-    auto len = static_cast<size_t>(m.length(1));
-    bool all_valid_ranges = true;
-    split(&s[pos], &s[pos + len], ',', [&](const char *b, const char *e) {
-      if (!all_valid_ranges) return;
-      static auto re_another_range = std::regex(R"(\s*(\d*)-(\d*))");
-      std::cmatch cm;
-      if (std::regex_match(b, e, cm, re_another_range)) {
-        ssize_t first = -1;
-        if (!cm.str(1).empty()) {
-          first = static_cast<ssize_t>(std::stoll(cm.str(1)));
-        }
-
-        ssize_t last = -1;
-        if (!cm.str(2).empty()) {
-          last = static_cast<ssize_t>(std::stoll(cm.str(2)));
-        }
-
-        if (first != -1 && last != -1 && first > last) {
-          all_valid_ranges = false;
-          return;
-        }
-        ranges.emplace_back(std::make_pair(first, last));
-      }
-    });
-    return all_valid_ranges;
-  }
-  return false;
-#ifdef CPPHTTPLIB_NO_EXCEPTIONS
-}
-#else
-} catch (...) { return false; }
-#endif
-
 class MultipartFormDataParser {
 public:
   MultipartFormDataParser() = default;
@@ -6219,14 +6174,6 @@ Server::process_request(Stream &strm, bool close_connection,
   strm.get_local_ip_and_port(req.local_addr, req.local_port, &req.localIPAddr);
   req.set_header("LOCAL_ADDR", req.local_addr);
   req.set_header("LOCAL_PORT", std::to_string(req.local_port));
-
-  if (req.has_header("Range")) {
-    const auto &range_header_value = req.get_header_value("Range");
-    if (!detail::parse_range_header(range_header_value, req.ranges)) {
-      res.status = 416;
-      return write_response(strm, close_connection, req, res);
-    }
-  }
 
   if (setup_request) { setup_request(req); }
 
