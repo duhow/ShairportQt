@@ -1711,19 +1711,10 @@ inline ssize_t Stream::write_format(const char *fmt, const Args &...args) {
 }
 
 inline void default_socket_options(socket_t sock) {
-  const int yes = 1;
 #ifdef _WIN32
+  const int yes = 1;
   setsockopt(sock, SOL_SOCKET, SO_EXCLUSIVEADDRUSE,
              reinterpret_cast<const char *>(&yes), sizeof(yes));
-
-#else
-#ifdef SO_REUSEPORT
-  setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, reinterpret_cast<void *>(&yes),
-             sizeof(yes));
-#else
-  setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<void *>(&yes),
-             sizeof(yes));
-#endif
 #endif
 }
 

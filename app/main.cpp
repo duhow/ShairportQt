@@ -31,7 +31,6 @@ static void SaveConfig(const SharedPtr<IValueCollection>& config);
 static void InitializeConfig(const SharedPtr<IValueCollection>& config);
 
 static string g_strConfigFileName   = ".ShairportQt_Config.json"s;
-static string g_strConfigName;
 
 // commandline parameters for debugging (Visual Studio):
 // .../ShairportQt/.vs/launch.vs.json
@@ -40,6 +39,7 @@ static string g_strConfigName;
 int main(int argc, char** argv) 
 {
     bool debugLogToFile = false;
+    string strConfigName;
 
     if (argv)
     {
@@ -61,17 +61,17 @@ int main(int argc, char** argv)
 
                         if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))
                         {
-                            g_strConfigName += c;
+                            strConfigName += c;
                         }
                         ++configName;
                     }
 
-                    if (!g_strConfigName.empty())
+                    if (!strConfigName.empty())
                     {
                         const auto pos = g_strConfigFileName.rfind('.');
                         assert(pos != string::npos);
 
-                        g_strConfigFileName.insert(pos, g_strConfigName);
+                        g_strConfigFileName.insert(pos, strConfigName);
                     }
                 }
             }
@@ -139,7 +139,7 @@ int main(int argc, char** argv)
         if (app)
         {
             // create GUI
-            MainDlg mainDialog(config, g_strConfigName);
+            MainDlg mainDialog(config, strConfigName);
 
             // QT best practices:
             // https://de.slideshare.net/slideshow/how-to-make-your-qt-app-look-native/2622616
