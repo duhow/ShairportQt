@@ -1,0 +1,41 @@
+name: CI Build
+
+on:
+  push:
+    branches:
+      - main
+      - gha-build
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          cmake build-essential \
+          openssl spdlog sockpp qtbase gtest
+
+    - name: Set up Qt
+      uses: jurplel/install-qt-action@v4
+      with:
+        version: '6.8'
+        host: linux
+        target: desktop
+        arch: gcc_64
+
+    - name: Configure CMake
+      run: |
+        cmake -B build -S . \
+          -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build
+      run: cmake --build build
