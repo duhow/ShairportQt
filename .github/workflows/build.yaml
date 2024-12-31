@@ -4,10 +4,7 @@ on:
   push:
     branches:
       - main
-      - gha-build
   pull_request:
-    branches:
-      - main
 
 jobs:
   build:
@@ -50,7 +47,7 @@ jobs:
     - name: Build
       run: cmake --build build
 
-    - name: run test
+    - name: Run tests
       run: ./build/ShairportQtTest
 
     - name: Upload artifacts
