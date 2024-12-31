@@ -22,7 +22,17 @@ jobs:
         sudo apt update
         sudo apt install -y \
           cmake build-essential \
-          libssl-dev libspdlog-dev libgtest-dev
+            libssl-dev libspdlog-dev libgtest-dev
+
+    - name: Install sockpp
+      run: |
+        git clone --depth 1 -b v1.0.0 https://github.com/fpagliughi/sockpp.git
+        cd sockpp
+        mkdir build
+        cd build
+        cmake ..
+        make -j $(nproc)
+        sudo make install
 
     - name: Set up Qt
       uses: jurplel/install-qt-action@v4
