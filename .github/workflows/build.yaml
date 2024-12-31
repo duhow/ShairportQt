@@ -27,10 +27,9 @@ jobs:
     - name: Set up Qt
       uses: jurplel/install-qt-action@v4
       with:
-        version: '6.8.0'
-        host: linux
+        version: '6.8.1'
         target: desktop
-        arch: gcc_64
+        arch: linux_gcc_64
 
     - name: Configure CMake
       run: |
