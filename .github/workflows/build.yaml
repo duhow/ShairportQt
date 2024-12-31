@@ -32,7 +32,8 @@ jobs:
           -DCMAKE_INSTALL_PREFIX=/usr \
           -DSOCKPP_BUILD_STATIC=ON \
           -DSOCKPP_WITH_OPENSSL=ON
-        cmake --build build/ --target install
+        cmake --build build
+        sudo cmake --install build
 
     - name: Set up Qt
       uses: jurplel/install-qt-action@v4
