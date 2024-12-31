@@ -49,3 +49,10 @@ jobs:
 
     - name: Build
       run: cmake --build build
+
+    - name: check content
+      run: |
+        find . -type f -executable -exec ls -l {} \;
+
+    - name: run test
+      run: ./ShairportQtTest
