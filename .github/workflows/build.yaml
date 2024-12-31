@@ -28,11 +28,11 @@ jobs:
       run: |
         git clone --depth 1 -b v1.0.0 https://github.com/fpagliughi/sockpp.git
         cd sockpp
-        mkdir build
-        cd build
-        cmake -DCMAKE_INSTALL_PREFIX=/usr ..
-        make -j $(nproc)
-        sudo make install
+        cmake -B build . \
+          -DCMAKE_INSTALL_PREFIX=/usr \
+          -DSOCKPP_BUILD_STATIC=ON \
+          -DSOCKPP_WITH_OPENSSL=ON
+        cmake --build build/ --target install
 
     - name: Set up Qt
       uses: jurplel/install-qt-action@v4
